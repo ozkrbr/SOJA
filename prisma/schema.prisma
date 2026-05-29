@@ -52,6 +52,9 @@ model Cenario {
   precoFuturo   Float
   barter        Boolean
   arrendamento  Float
+  taxaMensal     Float    @default(0.016)
+  dataHoje       DateTime?
+  dataTravamento DateTime?
   investimentoTotal Float
   receita           Float
   lucroOperacional  Float
@@ -59,6 +62,7 @@ model Cenario {
   pontoEquilibrio   Float
   custoPorSaca      Float
   precoSaca         Float
+  custoBarter       Float  @default(0)
   usaAlta           Boolean
   createdAt     DateTime @default(now())
 }

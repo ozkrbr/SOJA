@@ -40,6 +40,10 @@ interface AnaliseTabProps {
   barter: boolean;
   arrendamento: number;
   operacional: Operacional;
+  // parâmetros do barter corrigido (em decimal)
+  taxaMensal: number;
+  dataHoje: string;
+  dataTravamento: string;
 }
 
 export default function AnaliseTab({
@@ -51,6 +55,9 @@ export default function AnaliseTab({
   barter,
   arrendamento,
   operacional,
+  taxaMensal,
+  dataHoje,
+  dataTravamento,
 }: AnaliseTabProps) {
   const dadosCusto = useMemo(() => {
     const lista = R.usaAlta ? insumosAlta : insumosBaixo;
@@ -76,6 +83,9 @@ export default function AnaliseTab({
         insumosBaixo,
         insumosAlta,
         operacional,
+        taxaMensal,
+        dataHoje,
+        dataTravamento,
       });
       out.push({
         prod: p,
@@ -84,7 +94,7 @@ export default function AnaliseTab({
       });
     }
     return out;
-  }, [precoDisp, precoFuturo, barter, arrendamento, insumosBaixo, insumosAlta, operacional]);
+  }, [precoDisp, precoFuturo, barter, arrendamento, insumosBaixo, insumosAlta, operacional, taxaMensal, dataHoje, dataTravamento]);
 
   return (
     <div className="fade">
@@ -119,6 +129,7 @@ export default function AnaliseTab({
         <p className="text-[13px] text-brand-text-muted mb-3">
           Lucro operacional (R$/ha) e custo por saca conforme a produtividade muda. A faixa muda de
           configuração automaticamente acima de 60 sc/ha.
+          {barter && " Inclui custo financeiro do barter."}
         </p>
         <ResponsiveContainer width="100%" height={320}>
           <ComposedChart data={dadosSensibilidade} margin={{ left: 10, right: 10 }}>

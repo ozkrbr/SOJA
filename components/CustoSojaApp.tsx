@@ -7,6 +7,7 @@ import {
   INSUMOS_ALTA_INIT,
   OPERACIONAL_INIT,
 } from "@/lib/dados-iniciais";
+import { fmtBRL, fmtNum } from "@/lib/formatters";
 import type { Insumo, Operacional } from "@/lib/calc";
 import ParamCard from "./ParamCard";
 import PainelTab from "./tabs/PainelTab";
@@ -26,12 +27,18 @@ const TABS = [
 
 type AbaId = (typeof TABS)[number][0];
 
+const hoje = new Date().toISOString().slice(0, 10);
+
 export default function CustoSojaApp() {
   const [produtividade, setProdutividade] = useState(60);
   const [precoDisp, setPrecoDisp] = useState(125);
   const [precoFuturo, setPrecoFuturo] = useState(108);
   const [barter, setBarter] = useState(false);
   const [arrendamento, setArrendamento] = useState(0);
+  // parâmetros do barter corrigido (taxa em %, datas em 'YYYY-MM-DD')
+  const [taxaMensal, setTaxaMensal] = useState(1.6);
+  const [dataHoje, setDataHoje] = useState(hoje);
+  const [dataTravamento, setDataTravamento] = useState("2027-04-30");
 
   const [insumosBaixo, setInsumosBaixo] = useState<Insumo[]>(() =>
     INSUMOS_BAIXO_INIT.map((i) => ({ ...i }))
@@ -61,16 +68,14 @@ export default function CustoSojaApp() {
         insumosBaixo,
         insumosAlta,
         operacional,
+        taxaMensal: (Number(taxaMensal) || 0) / 100,
+        dataHoje,
+        dataTravamento,
       }),
     [
-      produtividade,
-      precoDisp,
-      precoFuturo,
-      barter,
-      arrendamento,
-      insumosBaixo,
-      insumosAlta,
-      operacional,
+      produtividade, precoDisp, precoFuturo, barter, arrendamento,
+      insumosBaixo, insumosAlta, operacional,
+      taxaMensal, dataHoje, dataTravamento,
     ]
   );
 
@@ -87,7 +92,12 @@ export default function CustoSojaApp() {
       nomeCenario.trim() || `Cenário ${new Date().toLocaleString("pt-BR")}`;
     const body = {
       nome,
-      params: { produtividade, precoDisp, precoFuturo, barter, arrendamento },
+      params: {
+        produtividade, precoDisp, precoFuturo, barter, arrendamento,
+        taxaMensal: (Number(taxaMensal) || 0) / 100,
+        dataHoje,
+        dataTravamento,
+      },
       resumo: {
         investimentoTotal: R.investimentoTotal,
         receita: R.receita,
@@ -97,6 +107,7 @@ export default function CustoSojaApp() {
         custoPorSaca: R.custoPorSaca,
         precoSaca: R.precoSaca,
         usaAlta: R.usaAlta,
+        custoBarter: R.custoBarter,
       },
     };
     try {
@@ -128,6 +139,9 @@ export default function CustoSojaApp() {
     setPrecoFuturo(c.params.precoFuturo);
     setBarter(c.params.barter);
     setArrendamento(c.params.arrendamento);
+    if (c.params.taxaMensal != null) setTaxaMensal(c.params.taxaMensal * 100);
+    if (c.params.dataHoje) setDataHoje(c.params.dataHoje);
+    if (c.params.dataTravamento) setDataTravamento(c.params.dataTravamento);
     setAba("painel");
   }
 
@@ -227,6 +241,72 @@ export default function CustoSojaApp() {
         />
       </section>
 
+      {/* Painel de condições do barter (visível apenas quando barter=SIM) */}
+      {barter && (
+        <section
+          className="fade rounded-xl p-4 mb-5 border-2"
+          style={{ background: "#fff8f5", borderColor: "#e8c4b4" }}
+        >
+          <div className="flex justify-between items-center flex-wrap gap-2 mb-3">
+            <strong className="text-[14px] text-brand-brown">
+              Condições do barter
+            </strong>
+            <span className="text-[13px] font-medium" style={{ color: "#a8451f" }}>
+              Custo financeiro:{" "}
+              <strong>{fmtBRL(R.custoBarter)}</strong>
+              {" · "}
+              {fmtNum(R.meses)} meses
+              {" · "}
+              juros compostos
+            </span>
+          </div>
+          <div
+            className="grid gap-4"
+            style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}
+          >
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-semibold text-brand-brown">
+                Taxa mensal (% a.m.)
+              </span>
+              <input
+                type="number"
+                step="0.01"
+                value={taxaMensal}
+                onChange={(e) =>
+                  setTaxaMensal(e.target.value === "" ? 0 : Number(e.target.value))
+                }
+                className="border border-[#e0d8c5] rounded-lg px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-semibold text-brand-brown">
+                Data de hoje
+              </span>
+              <input
+                type="date"
+                value={dataHoje}
+                onChange={(e) => setDataHoje(e.target.value)}
+                className="border border-[#e0d8c5] rounded-lg px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-semibold text-brand-brown">
+                Data de travamento
+              </span>
+              <input
+                type="date"
+                value={dataTravamento}
+                onChange={(e) => setDataTravamento(e.target.value)}
+                className="border border-[#e0d8c5] rounded-lg px-3 py-2 text-sm"
+              />
+            </label>
+          </div>
+          <p className="text-[12px] text-brand-muted mt-2 mb-0">
+            O custo financeiro incide sobre o investimento total (insumos + operacional) corrigido por juros compostos no período. O arrendamento é calculado sempre pelo preço disponível.
+          </p>
+        </section>
+      )}
+
       {/* Tabs */}
       <nav
         className="flex gap-1 flex-wrap mb-5"
@@ -279,6 +359,9 @@ export default function CustoSojaApp() {
           barter={barter}
           arrendamento={arrendamento}
           operacional={operacional}
+          taxaMensal={(Number(taxaMensal) || 0) / 100}
+          dataHoje={dataHoje}
+          dataTravamento={dataTravamento}
         />
       )}
 
@@ -297,11 +380,14 @@ export default function CustoSojaApp() {
           precoFuturo={precoFuturo}
           barter={barter}
           arrendamento={arrendamento}
+          taxaMensal={taxaMensal}
+          dataHoje={dataHoje}
+          dataTravamento={dataTravamento}
         />
       )}
 
       <footer className="mt-6 text-center text-xs text-brand-muted">
-        Modelo replicado da planilha CUSTO_SOJA_2026 · valores recalculados em
+        Modelo replicado da planilha CUSTO_SOJA_2026_CORRIGIDA · valores recalculados em
         tempo real · cenários salvos no banco de dados
       </footer>
     </div>

@@ -17,6 +17,11 @@ export async function GET() {
           precoFuturo: c.precoFuturo,
           barter: c.barter,
           arrendamento: c.arrendamento,
+          taxaMensal: c.taxaMensal,
+          dataHoje: c.dataHoje ? c.dataHoje.toISOString().slice(0, 10) : null,
+          dataTravamento: c.dataTravamento
+            ? c.dataTravamento.toISOString().slice(0, 10)
+            : null,
         },
         resumo: {
           investimentoTotal: c.investimentoTotal,
@@ -27,6 +32,7 @@ export async function GET() {
           custoPorSaca: c.custoPorSaca,
           precoSaca: c.precoSaca,
           usaAlta: c.usaAlta,
+          custoBarter: c.custoBarter,
         },
       }))
     );
@@ -46,6 +52,9 @@ export async function POST(req: NextRequest) {
         precoFuturo: number;
         barter: boolean;
         arrendamento: number;
+        taxaMensal?: number;
+        dataHoje?: string | null;
+        dataTravamento?: string | null;
       };
       resumo: {
         investimentoTotal: number;
@@ -56,6 +65,7 @@ export async function POST(req: NextRequest) {
         custoPorSaca: number;
         precoSaca: number;
         usaAlta: boolean;
+        custoBarter?: number;
       };
     };
 
@@ -75,6 +85,9 @@ export async function POST(req: NextRequest) {
         precoFuturo: params.precoFuturo,
         barter: params.barter,
         arrendamento: params.arrendamento,
+        taxaMensal: params.taxaMensal ?? 0.016,
+        dataHoje: params.dataHoje ? new Date(params.dataHoje) : null,
+        dataTravamento: params.dataTravamento ? new Date(params.dataTravamento) : null,
         investimentoTotal: resumo.investimentoTotal,
         receita: resumo.receita,
         lucroOperacional: resumo.lucroOperacional,
@@ -83,6 +96,7 @@ export async function POST(req: NextRequest) {
         custoPorSaca: resumo.custoPorSaca,
         precoSaca: resumo.precoSaca,
         usaAlta: resumo.usaAlta,
+        custoBarter: resumo.custoBarter ?? 0,
       },
     });
 
@@ -91,8 +105,15 @@ export async function POST(req: NextRequest) {
         id: cenario.id,
         nome: cenario.nome,
         ts: Number(cenario.ts),
-        params,
-        resumo,
+        params: {
+          ...params,
+          taxaMensal: cenario.taxaMensal,
+          dataHoje: cenario.dataHoje ? cenario.dataHoje.toISOString().slice(0, 10) : null,
+          dataTravamento: cenario.dataTravamento
+            ? cenario.dataTravamento.toISOString().slice(0, 10)
+            : null,
+        },
+        resumo: { ...resumo, custoBarter: cenario.custoBarter },
       },
       { status: 201 }
     );

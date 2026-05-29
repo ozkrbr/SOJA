@@ -12,6 +12,7 @@ export default function PainelTab({ R, produtividade }: PainelTabProps) {
 
   return (
     <div className="fade">
+      {/* Linha 1: métricas principais */}
       <section className="grid gap-3 mb-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))" }}>
         <Kpi
           big
@@ -36,6 +37,18 @@ export default function PainelTab({ R, produtividade }: PainelTabProps) {
         />
       </section>
 
+      {/* Linha 2: custo total com decomposição */}
+      <section className="grid gap-3 mb-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))" }}>
+        <Kpi
+          big
+          title="Custo Total"
+          value={fmtBRL(R.custoTotal)}
+          sub={`Invest. ${fmtBRL(R.investimentoTotal)} + Barter ${fmtBRL(R.custoBarter)} + Arrend. ${fmtBRL(R.custoArrend)}`}
+          accent="#a8451f"
+        />
+      </section>
+
+      {/* Linha 3: KPIs secundários */}
       <section className="grid gap-3 mb-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))" }}>
         <Kpi title="Margem Operacional" value={fmtPct(R.margem)} accent="#b5882a" />
         <Kpi
@@ -57,6 +70,7 @@ export default function PainelTab({ R, produtividade }: PainelTabProps) {
         />
       </section>
 
+      {/* Barra de equilíbrio */}
       <section className="bg-white rounded-[14px] p-[18px] border border-brand-border mb-3">
         <h3 className="font-serif text-[17px] mb-3 text-brand-text font-semibold">
           Margem de segurança

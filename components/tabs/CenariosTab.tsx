@@ -11,6 +11,9 @@ export interface CenarioFrontend {
     precoFuturo: number;
     barter: boolean;
     arrendamento: number;
+    taxaMensal: number;    // decimal (0.016)
+    dataHoje: string | null;
+    dataTravamento: string | null;
   };
   resumo: {
     investimentoTotal: number;
@@ -21,6 +24,7 @@ export interface CenarioFrontend {
     custoPorSaca: number;
     precoSaca: number;
     usaAlta: boolean;
+    custoBarter: number;
   };
 }
 
@@ -38,6 +42,9 @@ interface CenariosTabProps {
   precoFuturo: number;
   barter: boolean;
   arrendamento: number;
+  taxaMensal: number;    // % (1.6)
+  dataHoje: string;
+  dataTravamento: string;
 }
 
 export default function CenariosTab({
@@ -53,6 +60,9 @@ export default function CenariosTab({
   precoFuturo,
   barter,
   arrendamento,
+  taxaMensal,
+  dataHoje,
+  dataTravamento,
 }: CenariosTabProps) {
   return (
     <div className="fade">
@@ -81,6 +91,7 @@ export default function CenariosTab({
             `Disp: ${fmtBRL(precoDisp)}`,
             `Futuro: ${fmtBRL(precoFuturo)}`,
             `Barter: ${barter ? "Sim" : "Não"}`,
+            ...(barter ? [`Taxa: ${taxaMensal}% a.m.`, `Trav: ${dataTravamento}`] : []),
             `Arrend: ${arrendamento} sc/ha`,
           ].map((label) => (
             <span
@@ -135,6 +146,14 @@ export default function CenariosTab({
                 <strong>{fmtBRL(c.resumo.custoPorSaca)}</strong>
                 <span>Equilíbrio</span>
                 <strong>{fmtNum(c.resumo.pontoEquilibrio)} sc</strong>
+                {c.resumo.custoBarter > 0 && (
+                  <>
+                    <span>Custo barter</span>
+                    <strong style={{ color: "#a8451f" }}>
+                      {fmtBRL(c.resumo.custoBarter)}
+                    </strong>
+                  </>
+                )}
               </div>
               <div className="flex gap-2">
                 <button
