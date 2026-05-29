@@ -1,3 +1,4 @@
+import React from "react";
 import { somaOperacional } from "@/lib/calc";
 import { fmtBRL } from "@/lib/formatters";
 import type { Operacional } from "@/lib/calc";
@@ -39,25 +40,23 @@ export default function OperacionalTab({
         <div className="text-[12px] font-bold text-brand-brown text-center">Alta Produt.</div>
 
         {LINHAS.map(([k, label]) => (
-          <>
-            <div key={`lbl-${k}`} className="text-sm text-[#3c3526]">
+          <React.Fragment key={k}>
+            <div className="text-sm text-[#3c3526]">
               {label}
             </div>
             <input
-              key={`baixo-${k}`}
               type="number"
               className="border border-[#e0d8c5] rounded-lg px-2.5 py-2 text-sm text-right"
               value={operacional.baixo[k]}
               onChange={(e) => upd("baixo", k, Number(e.target.value))}
             />
             <input
-              key={`alta-${k}`}
               type="number"
               className="border border-[#e0d8c5] rounded-lg px-2.5 py-2 text-sm text-right"
               value={operacional.alta[k]}
               onChange={(e) => upd("alta", k, Number(e.target.value))}
             />
-          </>
+          </React.Fragment>
         ))}
 
         <div className="text-sm font-bold text-[#3c3526]">Subtotal</div>

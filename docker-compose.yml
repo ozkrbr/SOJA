@@ -1,6 +1,8 @@
 services:
   postgres:
     image: postgres:16-alpine
+    container_name: custo_soja_db
+    restart: unless-stopped
     environment:
       POSTGRES_DB: custo_soja
       POSTGRES_USER: soja
@@ -13,19 +15,20 @@ services:
       test: ["CMD-SHELL", "pg_isready -U soja -d custo_soja"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   app:
     build: .
+    container_name: custo_soja_app
+    restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       DATABASE_URL: postgresql://soja:soja@postgres:5432/custo_soja
+      PORT: 3000
     depends_on:
       postgres:
         condition: service_healthy
-    command: >
-      sh -c "npx prisma migrate deploy && npx prisma db seed && node server.js"
 
 volumes:
   postgres_data:
