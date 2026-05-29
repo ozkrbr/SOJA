@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Configuracao {
+  BAIXO_CUSTO
+  ALTA_PRODUTIVIDADE
+}
+
+model Insumo {
+  id           Int          @id @default(autoincrement())
+  produto      String
+  quantidade   Float
+  familia      String
+  valor        Float
+  configuracao Configuracao
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+model CustoOperacional {
+  id           Int          @id @default(autoincrement())
+  configuracao Configuracao @unique
+  plantio      Float
+  colheita     Float
+  manutencao   Float
+  outros       Float
+  updatedAt    DateTime     @updatedAt
+}
+
+model Safra {
+  id        Int       @id @default(autoincrement())
+  nome      String    @unique
+  cenarios  Cenario[]
+  createdAt DateTime  @default(now())
+}
+
+model Cenario {
+  id            String   @id @default(cuid())
+  nome          String
+  safraId       Int
+  safra         Safra    @relation(fields: [safraId], references: [id])
+  userId        String?
+  ts            BigInt
+  produtividade Float
+  precoDisp     Float
+  precoFuturo   Float
+  barter        Boolean
+  arrendamento  Float
+  investimentoTotal Float
+  receita           Float
+  lucroOperacional  Float
+  margem            Float
+  pontoEquilibrio   Float
+  custoPorSaca      Float
+  precoSaca         Float
+  usaAlta           Boolean
+  createdAt     DateTime @default(now())
+}
