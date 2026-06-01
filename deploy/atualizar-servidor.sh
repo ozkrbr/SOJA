@@ -17,7 +17,7 @@ FULL_IMAGE="${IMAGE}:${TAG}"
 DB_USER="soja"
 DB_PASS="soja"
 DB_NAME="custo_soja"
-APP_PORT=3000
+APP_PORT=10101
 NETWORK="soja_net"
 
 echo "==> Verificando containers em execução..."
