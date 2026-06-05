@@ -1,9 +1,8 @@
 #!/bin/bash
 # ============================================================
 # deploy/atualizar.sh
-# Builda, envia ao Docker Hub e reinicia o app no servidor.
-# Pré-requisito: Docker rodando localmente +
-#                SSH configurado para o servidor.
+# Puxa a imagem mais recente do Docker Hub e reinicia o app
+# no servidor via SSH. Não faz build nem push local.
 #
 # Uso:
 #   chmod +x deploy/atualizar.sh
@@ -34,28 +33,17 @@ FULL_IMAGE="${IMAGE}:${TAG}"
 
 echo ""
 echo "======================================================"
-echo "  Custo de Produção Soja — Atualização"
+echo "  Custo de Produção Soja — Deploy"
 echo "  Imagem  : ${FULL_IMAGE}"
 echo "  Servidor: ${SSH_USER}@${SERVER}:${APP_PORT}"
 echo "======================================================"
 echo ""
 
-# 1. Build local
-echo "==> Buildando imagem..."
-docker build -t "$FULL_IMAGE" .
-
-# 2. Push para o Docker Hub
-echo ""
-echo "==> Enviando para o Docker Hub..."
-docker push "$FULL_IMAGE"
-
-# 3. Atualiza o container no servidor via SSH
-echo ""
-echo "==> Conectando ao servidor e atualizando o container..."
+echo "==> Conectando ao servidor..."
 
 ssh "${SSH_USER}@${SERVER}" bash -s <<REMOTE
 set -e
-echo '--- Puxando imagem ${FULL_IMAGE} ---'
+echo '--- Puxando imagem ${FULL_IMAGE} do Docker Hub ---'
 docker pull ${FULL_IMAGE}
 
 echo '--- Parando container anterior ---'
@@ -72,7 +60,7 @@ docker run -d \
   -p ${APP_PORT}:3000 \
   ${FULL_IMAGE}
 
-echo '--- Aguardando inicialização ---'
+echo '--- Aguardando inicialização (migrate + seed + start) ---'
 sleep 8
 docker logs custo_soja_app --tail 20
 echo ''
@@ -81,7 +69,7 @@ REMOTE
 
 echo ""
 echo "======================================================"
-echo "  Atualização concluída!"
+echo "  Deploy concluído!"
 echo "  Versão : ${TAG}"
 echo "  URL    : http://${SERVER}:${APP_PORT}"
 echo "======================================================"
