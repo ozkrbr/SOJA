@@ -55,7 +55,8 @@ model Cenario {
   taxaMensal     Float    @default(0.016)
   dataHoje       DateTime?
   dataTravamento DateTime?
-  investimentoTotal Float
+  area           Float    @default(1)
+  investimentoTotal    Float
   receita           Float
   lucroOperacional  Float
   margem            Float
@@ -63,6 +64,7 @@ model Cenario {
   custoPorSaca      Float
   precoSaca         Float
   custoBarter       Float  @default(0)
+  lucroTotalFazenda Float  @default(0)
   usaAlta           Boolean
   createdAt     DateTime @default(now())
 }

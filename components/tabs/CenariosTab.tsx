@@ -14,6 +14,7 @@ export interface CenarioFrontend {
     taxaMensal: number;    // decimal (0.016)
     dataHoje: string | null;
     dataTravamento: string | null;
+    area?: number;
   };
   resumo: {
     investimentoTotal: number;
@@ -25,6 +26,8 @@ export interface CenarioFrontend {
     precoSaca: number;
     usaAlta: boolean;
     custoBarter: number;
+    lucroTotalFazenda?: number;
+    area?: number;
   };
 }
 
@@ -45,6 +48,7 @@ interface CenariosTabProps {
   taxaMensal: number;    // % (1.6)
   dataHoje: string;
   dataTravamento: string;
+  area: number;
 }
 
 export default function CenariosTab({
@@ -63,6 +67,7 @@ export default function CenariosTab({
   taxaMensal,
   dataHoje,
   dataTravamento,
+  area,
 }: CenariosTabProps) {
   return (
     <div className="fade">
@@ -88,6 +93,7 @@ export default function CenariosTab({
         <div className="flex gap-2 flex-wrap mt-3">
           {[
             `Prod: ${produtividade} sc/ha`,
+            `Área: ${area} ha`,
             `Disp: ${fmtBRL(precoDisp)}`,
             `Futuro: ${fmtBRL(precoFuturo)}`,
             `Barter: ${barter ? "Sim" : "Não"}`,
@@ -151,6 +157,15 @@ export default function CenariosTab({
                     <span>Custo barter</span>
                     <strong style={{ color: "#a8451f" }}>
                       {fmtBRL(c.resumo.custoBarter)}
+                    </strong>
+                  </>
+                )}
+                {c.resumo.lucroTotalFazenda != null && (
+                  <>
+                    <span>Total fazenda</span>
+                    <strong style={{ color: c.resumo.lucroTotalFazenda >= 0 ? "#6b8f3f" : "#a8451f" }}>
+                      {fmtBRL(c.resumo.lucroTotalFazenda)}
+                      {c.resumo.area ? ` · ${fmtNum(c.resumo.area, 0)} ha` : ""}
                     </strong>
                   </>
                 )}

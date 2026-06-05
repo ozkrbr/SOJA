@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  Cell, ReferenceLine, ComposedChart, Line, Legend,
+  Cell, ReferenceLine, ReferenceArea, ComposedChart, Line, Legend,
 } from "recharts";
 
 /* ============================================================
@@ -80,12 +80,33 @@ function somaOperacional(op) {
 }
 
 /*
-  Replica PRODUÇÃO SOJA:
+  Replica PRODUÇÃO SOJA + Planilha3 (versão CORRIGIDA):
   - se produtividade > base(60)  -> usa config ALTA produtividade
   - senão                        -> usa config BAIXO custo
   - preço da saca = barter? preçoFuturo : preçoDisp
+  - BARTER (corrigido): além de usar o preço futuro, aplica custo financeiro
+    por juros COMPOSTOS sobre o investimento total, entre a data de hoje e a
+    data de travamento. juros = invest × ((1+taxa)^meses − 1), meses=(dataTrav−hoje)/30
+  - ARRENDAMENTO (corrigido): custo = arrendamento(sc/ha) × preço DISPONÍVEL
+    (sempre o preço à vista, mesmo em cenário barter).
+  - ÁREA PLANTIO: escala os indicadores por hectare para o total da fazenda.
+    Ex.: lucroTotalFazenda = area × lucroOperacional/ha  (réplica de Q20 = Q3×E28).
 */
-function calcular({ produtividade, precoDisp, precoFuturo, barter, arrendamento, insumosBaixo, insumosAlta, operacional }) {
+function mesesEntre(dataInicio, dataFim) {
+  const ini = new Date(dataInicio);
+  const fim = new Date(dataFim);
+  if (isNaN(ini) || isNaN(fim)) return 0;
+  return (fim - ini) / (1000 * 60 * 60 * 24) / 30; // dias/30, igual à planilha
+}
+
+function calcular({
+  produtividade, precoDisp, precoFuturo, barter, arrendamento,
+  insumosBaixo, insumosAlta, operacional,
+  // parâmetros do barter (corrigido)
+  taxaMensal = 0.016, dataHoje, dataTravamento,
+  // área de plantio em hectares
+  area = 1,
+}) {
   const base = 60;
   const usaAlta = produtividade > base;
 
@@ -99,21 +120,35 @@ function calcular({ produtividade, precoDisp, precoFuturo, barter, arrendamento,
   const precoSaca = barter ? precoFuturo : precoDisp;
   const receita = produtividade * precoSaca;
 
-  // Barter: custo corrigido (fator implícito) — na planilha base barter=N => 0.
-  // Custo barter + arrendamento. Arrendamento em sc/ha * preço.
-  const custoArrend = (Number(arrendamento) || 0) * precoSaca;
-  const custoBarterArr = custoArrend; // barter aplicado via preço futuro acima
+  // --- CORREÇÃO 1: custo financeiro do barter (juros compostos) ---
+  const meses = barter ? mesesEntre(dataHoje, dataTravamento) : 0;
+  const custoBarter = barter
+    ? investimentoTotal * (Math.pow(1 + (Number(taxaMensal) || 0), meses) - 1)
+    : 0;
 
-  const custoTotal = investimentoTotal + custoBarterArr;
+  // --- CORREÇÃO 2: arrendamento usa SEMPRE o preço disponível ---
+  const custoArrend = (Number(arrendamento) || 0) * precoDisp;
+
+  const custoTotal = investimentoTotal + custoBarter + custoArrend;
   const lucroOperacional = receita - custoTotal;
   const margem = receita ? lucroOperacional / receita : 0;
   const pontoEquilibrio = precoSaca ? custoTotal / precoSaca : 0;
   const custoPorSaca = produtividade ? custoTotal / produtividade : 0;
 
+  // --- ÁREA PLANTIO: totais escalados pela fazenda (réplica do bloco Q) ---
+  const ha = Number(area) || 0;
+  const receitaTotalFazenda = receita * ha;
+  const custoTotalFazenda = custoTotal * ha;
+  const investimentoTotalFazenda = investimentoTotal * ha;
+  const lucroTotalFazenda = lucroOperacional * ha; // Q20 = Q3 × E28
+  const producaoTotalFazenda = produtividade * ha; // sacas totais
+
   return {
     usaAlta, insumos, opVal, investimentoTotal, precoSaca, receita,
-    custoArrend, custoBarterArr, custoTotal, lucroOperacional, margem,
-    pontoEquilibrio, custoPorSaca, subBaixo, subAlta,
+    custoBarter, custoArrend, custoTotal, lucroOperacional, margem,
+    pontoEquilibrio, custoPorSaca, subBaixo, subAlta, meses,
+    area: ha, receitaTotalFazenda, custoTotalFazenda,
+    investimentoTotalFazenda, lucroTotalFazenda, producaoTotalFazenda,
   };
 }
 
@@ -143,6 +178,11 @@ export default function CustoSoja() {
   const [precoFuturo, setPrecoFuturo] = useState(108);
   const [barter, setBarter] = useState(false);
   const [arrendamento, setArrendamento] = useState(0);
+  const [area, setArea] = useState(400); // hectares de plantio
+  // Parâmetros do barter (correção): taxa mensal e datas
+  const [taxaMensal, setTaxaMensal] = useState(1.6); // em % a.m. (UI), convertida abaixo
+  const [dataHoje, setDataHoje] = useState(new Date().toISOString().slice(0, 10));
+  const [dataTravamento, setDataTravamento] = useState("2027-04-30");
 
   const [insumosBaixo, setInsumosBaixo] = useState(INSUMOS_BAIXO_INIT);
   const [insumosAlta, setInsumosAlta] = useState(INSUMOS_ALTA_INIT);
@@ -155,8 +195,13 @@ export default function CustoSoja() {
   const [loadingC, setLoadingC] = useState(true);
 
   const R = useMemo(
-    () => calcular({ produtividade, precoDisp, precoFuturo, barter, arrendamento, insumosBaixo, insumosAlta, operacional }),
-    [produtividade, precoDisp, precoFuturo, barter, arrendamento, insumosBaixo, insumosAlta, operacional]
+    () => calcular({
+      produtividade, precoDisp, precoFuturo, barter, arrendamento,
+      insumosBaixo, insumosAlta, operacional,
+      taxaMensal: (Number(taxaMensal) || 0) / 100, dataHoje, dataTravamento,
+      area,
+    }),
+    [produtividade, precoDisp, precoFuturo, barter, arrendamento, insumosBaixo, insumosAlta, operacional, taxaMensal, dataHoje, dataTravamento, area]
   );
 
   /* ---- Persistência de cenários ---- */
@@ -185,12 +230,13 @@ export default function CustoSoja() {
     const id = "cenario:" + Date.now();
     const obj = {
       id, nome, ts: Date.now(),
-      params: { produtividade, precoDisp, precoFuturo, barter, arrendamento },
+      params: { produtividade, precoDisp, precoFuturo, barter, arrendamento, taxaMensal, dataHoje, dataTravamento, area },
       resumo: {
         investimentoTotal: R.investimentoTotal, receita: R.receita,
         lucroOperacional: R.lucroOperacional, margem: R.margem,
         pontoEquilibrio: R.pontoEquilibrio, custoPorSaca: R.custoPorSaca,
-        precoSaca: R.precoSaca, usaAlta: R.usaAlta,
+        precoSaca: R.precoSaca, usaAlta: R.usaAlta, custoBarter: R.custoBarter,
+        lucroTotalFazenda: R.lucroTotalFazenda, area: R.area,
       },
     };
     try {
@@ -211,6 +257,10 @@ export default function CustoSoja() {
     setPrecoFuturo(c.params.precoFuturo);
     setBarter(c.params.barter);
     setArrendamento(c.params.arrendamento);
+    if (c.params.taxaMensal != null) setTaxaMensal(c.params.taxaMensal);
+    if (c.params.dataHoje) setDataHoje(c.params.dataHoje);
+    if (c.params.dataTravamento) setDataTravamento(c.params.dataTravamento);
+    if (c.params.area != null) setArea(c.params.area);
     setAba("painel");
   }
 
@@ -228,11 +278,21 @@ export default function CustoSoja() {
   const dadosSensibilidade = useMemo(() => {
     const out = [];
     for (let p = 40; p <= 90; p += 5) {
-      const c = calcular({ produtividade: p, precoDisp, precoFuturo, barter, arrendamento, insumosBaixo, insumosAlta, operacional });
-      out.push({ prod: p, lucro: Math.round(c.lucroOperacional), custoSc: c.custoPorSaca });
+      const c = calcular({
+        produtividade: p, precoDisp, precoFuturo, barter, arrendamento,
+        insumosBaixo, insumosAlta, operacional,
+        taxaMensal: (Number(taxaMensal) || 0) / 100, dataHoje, dataTravamento,
+        area,
+      });
+      out.push({
+        prod: p,
+        lucro: Math.round(c.lucroOperacional),
+        custoSc: c.custoPorSaca,
+        config: c.usaAlta ? "alta" : "baixo",
+      });
     }
     return out;
-  }, [precoDisp, precoFuturo, barter, arrendamento, insumosBaixo, insumosAlta, operacional]);
+  }, [precoDisp, precoFuturo, barter, arrendamento, insumosBaixo, insumosAlta, operacional, taxaMensal, dataHoje, dataTravamento, area]);
 
   return (
     <div style={S.wrap}>
@@ -254,6 +314,7 @@ export default function CustoSoja() {
       {/* ===== Parâmetros editáveis (campos da imagem) ===== */}
       <section style={S.paramsRow}>
         <ParamCard label="PRODUTIVIDADE" unit="sc/ha" value={produtividade} onChange={setProdutividade} step={1} accent="#6b8f3f" />
+        <ParamCard label="ÁREA PLANTIO" unit="ha" value={area} onChange={setArea} step={10} accent="#7a5c2e" />
         <ParamCard label="PREÇO DISPONÍVEL" sub="commodity (dia)" unit="R$/sc" value={precoDisp} onChange={setPrecoDisp} step={0.5} accent="#3f7d6b" />
         <ParamCard label="PREÇO FUTURO" sub="travamento em bolsa" unit="R$/sc" value={precoFuturo} onChange={setPrecoFuturo} step={0.5} accent="#b5882a" />
         <div style={S.paramCard}>
@@ -266,6 +327,36 @@ export default function CustoSoja() {
         </div>
         <ParamCard label="ARRENDAMENTO" unit="sc/ha" value={arrendamento} onChange={setArrendamento} step={1} accent="#5a4632" />
       </section>
+
+      {/* ===== Parâmetros do barter (aparecem quando barter = SIM) ===== */}
+      {barter && (
+        <section style={S.barterBox} className="fade">
+          <div style={S.barterHead}>
+            <strong>Condições do barter</strong>
+            <span style={S.barterInfo}>
+              custo financeiro: <strong>{fmtBRL(R.custoBarter)}</strong> · {fmtNum(R.meses)} meses · juros compostos
+            </span>
+          </div>
+          <div style={S.barterGrid}>
+            <label style={S.barterField}>
+              <span>Taxa mensal (% a.m.)</span>
+              <input type="number" step="0.01" value={taxaMensal}
+                onChange={(e) => setTaxaMensal(e.target.value === "" ? 0 : Number(e.target.value))} style={S.barterInput} />
+            </label>
+            <label style={S.barterField}>
+              <span>Data de hoje</span>
+              <input type="date" value={dataHoje} onChange={(e) => setDataHoje(e.target.value)} style={S.barterInput} />
+            </label>
+            <label style={S.barterField}>
+              <span>Data de travamento</span>
+              <input type="date" value={dataTravamento} onChange={(e) => setDataTravamento(e.target.value)} style={S.barterInput} />
+            </label>
+          </div>
+          <p style={S.barterNote}>
+            O custo do barter incide sobre o investimento total (insumos + operacional), corrigido por juros compostos no período. O arrendamento é sempre calculado pelo preço disponível.
+          </p>
+        </section>
+      )}
 
       {/* ===== Tabs ===== */}
       <nav style={S.tabs}>
@@ -285,9 +376,11 @@ export default function CustoSoja() {
       {/* ===== PAINEL ===== */}
       {aba === "painel" && (
         <div className="fade">
+          <div style={S.scopeLabel}>Por hectare</div>
           <section style={S.kpiGrid}>
             <Kpi big title="Receita Bruta" value={fmtBRL(R.receita)} sub={`${produtividade} sc × ${fmtBRL(R.precoSaca)}`} accent="#3f7d6b" />
-            <Kpi big title="Investimento Total" value={fmtBRL(R.investimentoTotal)} sub={`Insumos ${fmtBRL(R.insumos)} + Op. ${fmtBRL(R.opVal)}`} accent="#5a4632" />
+            <Kpi big title="Custo Total" value={fmtBRL(R.custoTotal)}
+              sub={`Invest. ${fmtBRL(R.investimentoTotal)} + Barter ${fmtBRL(R.custoBarter)} + Arrend. ${fmtBRL(R.custoArrend)}`} accent="#a8451f" />
             <Kpi big title="Lucro Operacional" value={fmtBRL(R.lucroOperacional)} sub={`Margem ${fmtPct(R.margem)}`} accent={R.lucroOperacional >= 0 ? "#6b8f3f" : "#a8451f"} />
           </section>
           <section style={S.kpiGrid}>
@@ -295,6 +388,16 @@ export default function CustoSoja() {
             <Kpi title="Ponto de Equilíbrio" value={`${fmtNum(R.pontoEquilibrio)} sc/ha`} sub={`de ${produtividade} sc/ha`} accent="#a8451f" />
             <Kpi title="Custo por Saca" value={fmtBRL(R.custoPorSaca)} sub={`venda a ${fmtBRL(R.precoSaca)}`} accent="#5a4632" />
             <Kpi title="Ganho por Saca" value={fmtBRL(R.precoSaca - R.custoPorSaca)} accent={R.precoSaca - R.custoPorSaca >= 0 ? "#6b8f3f" : "#a8451f"} />
+          </section>
+
+          {/* Totais da fazenda (escalados pela área) */}
+          <div style={S.scopeLabel}>Total da fazenda — {fmtNum(R.area, 0)} ha</div>
+          <section style={S.kpiGrid}>
+            <Kpi big title="Receita Total" value={fmtBRL(R.receitaTotalFazenda)} sub={`${fmtNum(R.producaoTotalFazenda, 0)} sacas`} accent="#3f7d6b" />
+            <Kpi big title="Custo Total" value={fmtBRL(R.custoTotalFazenda)} sub={`Investimento ${fmtBRL(R.investimentoTotalFazenda)}`} accent="#5a4632" />
+            <Kpi big title={R.lucroTotalFazenda >= 0 ? "Lucro Operacional Total" : "Prejuízo Operacional Total"}
+              value={fmtBRL(R.lucroTotalFazenda)} sub={`${fmtNum(R.area, 0)} ha × ${fmtBRL(R.lucroOperacional)}/ha`}
+              accent={R.lucroTotalFazenda >= 0 ? "#6b8f3f" : "#a8451f"} />
           </section>
 
           {/* Barra de equilíbrio */}
@@ -379,22 +482,43 @@ export default function CustoSoja() {
 
           <section style={S.panel}>
             <h3 style={S.panelTitle}>Sensibilidade à produtividade</h3>
-            <p style={S.panelSub}>Lucro operacional (R$/ha) e custo por saca conforme a produtividade muda. A faixa muda de configuração automaticamente acima de 60 sc/ha.</p>
-            <ResponsiveContainer width="100%" height={320}>
-              <ComposedChart data={dadosSensibilidade} margin={{ left: 10, right: 10 }}>
+            <p style={S.panelSub}>Lucro operacional (R$/ha) e custo por saca conforme a produtividade muda. A linha em <strong>60 sc/ha</strong> marca a transição automática de configuração.</p>
+            <div style={S.legendZonas}>
+              <span style={S.legendItem}><span style={{ ...S.legendSwatch, background: "rgba(107,143,63,.14)" }} /> Zona Baixo Custo (≤ 60 sc/ha)</span>
+              <span style={S.legendItem}><span style={{ ...S.legendSwatch, background: "rgba(181,136,42,.16)" }} /> Zona Alta Produtividade (&gt; 60 sc/ha)</span>
+            </div>
+            <ResponsiveContainer width="100%" height={340}>
+              <ComposedChart data={dadosSensibilidade} margin={{ left: 10, right: 10, top: 10 }}>
+                {/* Zonas de configuração ao fundo */}
+                <ReferenceArea x1={40} x2={60} yAxisId="l" fill="#6b8f3f" fillOpacity={0.08} />
+                <ReferenceArea x1={60} x2={90} yAxisId="l" fill="#b5882a" fillOpacity={0.1} />
                 <CartesianGrid strokeDasharray="3 3" stroke="#e6e0d4" />
                 <XAxis dataKey="prod" tick={{ fontSize: 11 }} label={{ value: "sc/ha", position: "insideBottomRight", offset: -4, fontSize: 11 }} />
                 <YAxis yAxisId="l" tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 11 }} />
                 <YAxis yAxisId="r" orientation="right" tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v, n) => n === "lucro" ? fmtBRL(v) : fmtBRL(v)} />
+                <Tooltip
+                  formatter={(v, n) => n === "Lucro op. (R$/ha)" ? fmtBRL(v) : fmtBRL(v)}
+                  labelFormatter={(p) => {
+                    const pt = dadosSensibilidade.find((d) => d.prod === p);
+                    return `${p} sc/ha · ${pt?.config === "alta" ? "Alta Produtividade" : "Baixo Custo"}`;
+                  }}
+                />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 <ReferenceLine yAxisId="l" y={0} stroke="#a8451f" strokeDasharray="4 4" />
+                {/* Marcador da transição de configuração em 60 sc/ha */}
+                <ReferenceLine yAxisId="l" x={60} stroke="#5a4632" strokeWidth={2}
+                  label={{ value: "transição de configuração", position: "top", fontSize: 11, fill: "#5a4632" }} />
                 <Bar yAxisId="l" dataKey="lucro" name="Lucro op. (R$/ha)" radius={[3, 3, 0, 0]}>
-                  {dadosSensibilidade.map((d, i) => <Cell key={i} fill={d.lucro >= 0 ? "#6b8f3f" : "#a8451f"} />)}
+                  {dadosSensibilidade.map((d, i) => (
+                    <Cell key={i} fill={d.lucro >= 0 ? (d.config === "alta" ? "#b5882a" : "#6b8f3f") : "#a8451f"} />
+                  ))}
                 </Bar>
-                <Line yAxisId="r" dataKey="custoSc" name="Custo/saca (R$)" stroke="#5a4632" strokeWidth={2} dot={false} />
+                <Line yAxisId="r" dataKey="custoSc" name="Custo/saca (R$)" stroke="#5a4632" strokeWidth={2} dot={{ r: 3 }} />
               </ComposedChart>
             </ResponsiveContainer>
+            <p style={S.beNote}>
+              Até 60 sc/ha o modelo usa a cesta de insumos <strong>Baixo Custo</strong> (barras verdes); acima de 60, salta para <strong>Alta Produtividade</strong> (barras âmbar), com insumos e custo operacional maiores. O degrau no gráfico mostra esse salto de investimento.
+            </p>
           </section>
         </div>
       )}
@@ -411,6 +535,7 @@ export default function CustoSoja() {
             </div>
             <div style={S.chipRow}>
               <Chip>Prod: {produtividade} sc/ha</Chip>
+              <Chip>Área: {area} ha</Chip>
               <Chip>Disp: {fmtBRL(precoDisp)}</Chip>
               <Chip>Futuro: {fmtBRL(precoFuturo)}</Chip>
               <Chip>Barter: {barter ? "Sim" : "Não"}</Chip>
@@ -436,6 +561,14 @@ export default function CustoSoja() {
                     <span>Margem</span><strong>{fmtPct(c.resumo.margem)}</strong>
                     <span>Custo/saca</span><strong>{fmtBRL(c.resumo.custoPorSaca)}</strong>
                     <span>Equilíbrio</span><strong>{fmtNum(c.resumo.pontoEquilibrio)} sc</strong>
+                    {c.resumo.lucroTotalFazenda != null && (
+                      <>
+                        <span>Total fazenda</span>
+                        <strong style={{ color: c.resumo.lucroTotalFazenda >= 0 ? "#6b8f3f" : "#a8451f" }}>
+                          {fmtBRL(c.resumo.lucroTotalFazenda)}{c.resumo.area ? ` · ${fmtNum(c.resumo.area, 0)} ha` : ""}
+                        </strong>
+                      </>
+                    )}
                   </div>
                   <div style={S.cenActions}>
                     <button onClick={() => carregarCenario(c)} style={S.btnSmall}>Carregar</button>
@@ -566,6 +699,14 @@ const S = {
   paramUnit: { fontSize: 11, color: "#9a8d70" },
   toggle: { width: "100%", border: "none", borderRadius: 8, padding: "10px 0", fontSize: 18, fontWeight: 800, cursor: "pointer", margin: "10px 0 4px", fontFamily: "'Fraunces', serif", transition: "all .2s" },
 
+  barterBox: { background: "#fff", border: "1px solid #e6d3c5", borderLeft: "4px solid #a8451f", borderRadius: 12, padding: "14px 16px", marginBottom: 18 },
+  barterHead: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 12 },
+  barterInfo: { fontSize: 13, color: "#776b52" },
+  barterGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 },
+  barterField: { display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "#5a4632", fontWeight: 600 },
+  barterInput: { border: "1px solid #e0d8c5", borderRadius: 8, padding: "9px 11px", fontSize: 14, fontFamily: "inherit" },
+  barterNote: { fontSize: 12, color: "#9a8d70", margin: "12px 0 0" },
+
   tabs: { display: "flex", gap: 4, borderBottom: "2px solid #d8d0bd", marginBottom: 20, flexWrap: "wrap" },
   tab: { border: "none", background: "transparent", padding: "10px 16px", fontSize: 14, fontWeight: 600, color: "#8a7d5f", cursor: "pointer", borderBottom: "3px solid transparent", marginBottom: -2 },
   tabActive: { color: "#2c2417", borderBottomColor: "#6b8f3f" },
@@ -578,6 +719,10 @@ const S = {
   kpiSub: { fontSize: 12, color: "#9a8d70" },
 
   panel: { background: "#fff", borderRadius: 14, padding: 18, border: "1px solid #e6e0d4", marginBottom: 14 },
+  scopeLabel: { fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#8a7d5f", margin: "4px 2px 8px" },
+  legendZonas: { display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 8 },
+  legendItem: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#5a4632" },
+  legendSwatch: { width: 16, height: 12, borderRadius: 3, display: "inline-block", border: "1px solid #e0d8c5" },
   panelTitle: { fontFamily: "'Fraunces', serif", fontSize: 17, margin: "0 0 12px", color: "#2c2417", fontWeight: 600 },
   panelSub: { fontSize: 13, color: "#776b52", margin: "-6px 0 12px" },
 

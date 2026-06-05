@@ -35,6 +35,7 @@ export default function CustoSojaApp() {
   const [precoFuturo, setPrecoFuturo] = useState(108);
   const [barter, setBarter] = useState(false);
   const [arrendamento, setArrendamento] = useState(0);
+  const [area, setArea] = useState(400);
   // parâmetros do barter corrigido (taxa em %, datas em 'YYYY-MM-DD')
   const [taxaMensal, setTaxaMensal] = useState(1.6);
   const [dataHoje, setDataHoje] = useState(hoje);
@@ -71,9 +72,10 @@ export default function CustoSojaApp() {
         taxaMensal: (Number(taxaMensal) || 0) / 100,
         dataHoje,
         dataTravamento,
+        area,
       }),
     [
-      produtividade, precoDisp, precoFuturo, barter, arrendamento,
+      produtividade, precoDisp, precoFuturo, barter, arrendamento, area,
       insumosBaixo, insumosAlta, operacional,
       taxaMensal, dataHoje, dataTravamento,
     ]
@@ -97,6 +99,7 @@ export default function CustoSojaApp() {
         taxaMensal: (Number(taxaMensal) || 0) / 100,
         dataHoje,
         dataTravamento,
+        area,
       },
       resumo: {
         investimentoTotal: R.investimentoTotal,
@@ -108,6 +111,8 @@ export default function CustoSojaApp() {
         precoSaca: R.precoSaca,
         usaAlta: R.usaAlta,
         custoBarter: R.custoBarter,
+        lucroTotalFazenda: R.lucroTotalFazenda,
+        area: R.area,
       },
     };
     try {
@@ -142,6 +147,7 @@ export default function CustoSojaApp() {
     if (c.params.taxaMensal != null) setTaxaMensal(c.params.taxaMensal * 100);
     if (c.params.dataHoje) setDataHoje(c.params.dataHoje);
     if (c.params.dataTravamento) setDataTravamento(c.params.dataTravamento);
+    if (c.params.area != null) setArea(c.params.area);
     setAba("painel");
   }
 
@@ -188,6 +194,14 @@ export default function CustoSojaApp() {
           onChange={setProdutividade}
           step={1}
           accent="#6b8f3f"
+        />
+        <ParamCard
+          label="ÁREA PLANTIO"
+          unit="ha"
+          value={area}
+          onChange={setArea}
+          step={10}
+          accent="#7a5c2e"
         />
         <ParamCard
           label="PREÇO DISPONÍVEL"
@@ -328,7 +342,9 @@ export default function CustoSojaApp() {
       </nav>
 
       {/* Conteúdo da aba */}
-      {aba === "painel" && <PainelTab R={R} produtividade={produtividade} />}
+      {aba === "painel" && (
+        <PainelTab R={R} produtividade={produtividade} />
+      )}
 
       {aba === "insumos" && (
         <InsumosTab
@@ -362,6 +378,7 @@ export default function CustoSojaApp() {
           taxaMensal={(Number(taxaMensal) || 0) / 100}
           dataHoje={dataHoje}
           dataTravamento={dataTravamento}
+          area={area}
         />
       )}
 
@@ -383,6 +400,7 @@ export default function CustoSojaApp() {
           taxaMensal={taxaMensal}
           dataHoje={dataHoje}
           dataTravamento={dataTravamento}
+          area={area}
         />
       )}
 

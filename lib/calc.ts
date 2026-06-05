@@ -32,6 +32,8 @@ export interface CalcInput {
   taxaMensal?: number;       // decimal, ex.: 0.016 = 1,6% a.m.
   dataHoje?: string;         // 'YYYY-MM-DD'
   dataTravamento?: string;   // 'YYYY-MM-DD'
+  // área de plantio em hectares (réplica de Q3 da planilha)
+  area?: number;
 }
 
 export interface CalcResult {
@@ -51,6 +53,13 @@ export interface CalcResult {
   custoPorSaca: number;
   subBaixo: number;
   subAlta: number;
+  // totais escalados pela área (réplica do bloco Q da planilha)
+  area: number;
+  receitaTotalFazenda: number;
+  custoTotalFazenda: number;
+  investimentoTotalFazenda: number;
+  lucroTotalFazenda: number;
+  producaoTotalFazenda: number;
 }
 
 export function subtotalInsumos(lista: Insumo[]): number {
@@ -102,6 +111,7 @@ export function calcular(input: CalcInput): CalcResult {
     taxaMensal = 0.016,
     dataHoje,
     dataTravamento,
+    area = 1,
   } = input;
 
   const usaAlta = produtividade > BASE;
@@ -136,6 +146,14 @@ export function calcular(input: CalcInput): CalcResult {
   const pontoEquilibrio = precoSaca ? custoTotal / precoSaca : 0;
   const custoPorSaca = produtividade ? custoTotal / produtividade : 0;
 
+  // ÁREA PLANTIO: totais escalados pela fazenda (réplica do bloco Q da planilha)
+  const ha = Number(area) || 0;
+  const receitaTotalFazenda = receita * ha;
+  const custoTotalFazenda = custoTotal * ha;
+  const investimentoTotalFazenda = investimentoTotal * ha;
+  const lucroTotalFazenda = lucroOperacional * ha; // Q20 = Q3 × E28
+  const producaoTotalFazenda = produtividade * ha;
+
   return {
     usaAlta,
     insumos,
@@ -153,5 +171,11 @@ export function calcular(input: CalcInput): CalcResult {
     custoPorSaca,
     subBaixo,
     subAlta,
+    area: ha,
+    receitaTotalFazenda,
+    custoTotalFazenda,
+    investimentoTotalFazenda,
+    lucroTotalFazenda,
+    producaoTotalFazenda,
   };
 }

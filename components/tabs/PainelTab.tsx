@@ -12,7 +12,10 @@ export default function PainelTab({ R, produtividade }: PainelTabProps) {
 
   return (
     <div className="fade">
-      {/* Linha 1: métricas principais */}
+      {/* Linha 1: métricas principais por hectare */}
+      <p className="text-[11px] font-bold tracking-[1px] uppercase text-brand-text-muted2 mx-0.5 mb-2">
+        Por hectare
+      </p>
       <section className="grid gap-3 mb-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))" }}>
         <Kpi
           big
@@ -23,10 +26,10 @@ export default function PainelTab({ R, produtividade }: PainelTabProps) {
         />
         <Kpi
           big
-          title="Investimento Total"
-          value={fmtBRL(R.investimentoTotal)}
-          sub={`Insumos ${fmtBRL(R.insumos)} + Op. ${fmtBRL(R.opVal)}`}
-          accent="#5a4632"
+          title="Custo Total"
+          value={fmtBRL(R.custoTotal)}
+          sub={`Invest. ${fmtBRL(R.investimentoTotal)} + Barter ${fmtBRL(R.custoBarter)} + Arrend. ${fmtBRL(R.custoArrend)}`}
+          accent="#a8451f"
         />
         <Kpi
           big
@@ -37,18 +40,7 @@ export default function PainelTab({ R, produtividade }: PainelTabProps) {
         />
       </section>
 
-      {/* Linha 2: custo total com decomposição */}
-      <section className="grid gap-3 mb-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))" }}>
-        <Kpi
-          big
-          title="Custo Total"
-          value={fmtBRL(R.custoTotal)}
-          sub={`Invest. ${fmtBRL(R.investimentoTotal)} + Barter ${fmtBRL(R.custoBarter)} + Arrend. ${fmtBRL(R.custoArrend)}`}
-          accent="#a8451f"
-        />
-      </section>
-
-      {/* Linha 3: KPIs secundários */}
+      {/* Linha 2: KPIs secundários */}
       <section className="grid gap-3 mb-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))" }}>
         <Kpi title="Margem Operacional" value={fmtPct(R.margem)} accent="#b5882a" />
         <Kpi
@@ -67,6 +59,34 @@ export default function PainelTab({ R, produtividade }: PainelTabProps) {
           title="Ganho por Saca"
           value={fmtBRL(R.precoSaca - R.custoPorSaca)}
           accent={R.precoSaca - R.custoPorSaca >= 0 ? "#6b8f3f" : "#a8451f"}
+        />
+      </section>
+
+      {/* Totais da fazenda */}
+      <p className="text-[11px] font-bold tracking-[1px] uppercase text-brand-text-muted2 mx-0.5 mb-2">
+        Total da fazenda — {fmtNum(R.area, 0)} ha
+      </p>
+      <section className="grid gap-3 mb-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))" }}>
+        <Kpi
+          big
+          title="Receita Total"
+          value={fmtBRL(R.receitaTotalFazenda)}
+          sub={`${fmtNum(R.producaoTotalFazenda, 0)} sacas`}
+          accent="#3f7d6b"
+        />
+        <Kpi
+          big
+          title="Custo Total"
+          value={fmtBRL(R.custoTotalFazenda)}
+          sub={`Investimento ${fmtBRL(R.investimentoTotalFazenda)}`}
+          accent="#5a4632"
+        />
+        <Kpi
+          big
+          title={R.lucroTotalFazenda >= 0 ? "Lucro Operacional Total" : "Prejuízo Operacional Total"}
+          value={fmtBRL(R.lucroTotalFazenda)}
+          sub={`${fmtNum(R.area, 0)} ha × ${fmtBRL(R.lucroOperacional)}/ha`}
+          accent={R.lucroTotalFazenda >= 0 ? "#6b8f3f" : "#a8451f"}
         />
       </section>
 

@@ -22,6 +22,7 @@ export async function GET() {
           dataTravamento: c.dataTravamento
             ? c.dataTravamento.toISOString().slice(0, 10)
             : null,
+          area: c.area,
         },
         resumo: {
           investimentoTotal: c.investimentoTotal,
@@ -33,6 +34,8 @@ export async function GET() {
           precoSaca: c.precoSaca,
           usaAlta: c.usaAlta,
           custoBarter: c.custoBarter,
+          lucroTotalFazenda: c.lucroTotalFazenda,
+          area: c.area,
         },
       }))
     );
@@ -55,6 +58,7 @@ export async function POST(req: NextRequest) {
         taxaMensal?: number;
         dataHoje?: string | null;
         dataTravamento?: string | null;
+        area?: number;
       };
       resumo: {
         investimentoTotal: number;
@@ -66,6 +70,8 @@ export async function POST(req: NextRequest) {
         precoSaca: number;
         usaAlta: boolean;
         custoBarter?: number;
+        lucroTotalFazenda?: number;
+        area?: number;
       };
     };
 
@@ -88,6 +94,7 @@ export async function POST(req: NextRequest) {
         taxaMensal: params.taxaMensal ?? 0.016,
         dataHoje: params.dataHoje ? new Date(params.dataHoje) : null,
         dataTravamento: params.dataTravamento ? new Date(params.dataTravamento) : null,
+        area: params.area ?? 1,
         investimentoTotal: resumo.investimentoTotal,
         receita: resumo.receita,
         lucroOperacional: resumo.lucroOperacional,
@@ -97,6 +104,7 @@ export async function POST(req: NextRequest) {
         precoSaca: resumo.precoSaca,
         usaAlta: resumo.usaAlta,
         custoBarter: resumo.custoBarter ?? 0,
+        lucroTotalFazenda: resumo.lucroTotalFazenda ?? 0,
       },
     });
 
@@ -112,8 +120,14 @@ export async function POST(req: NextRequest) {
           dataTravamento: cenario.dataTravamento
             ? cenario.dataTravamento.toISOString().slice(0, 10)
             : null,
+          area: cenario.area,
         },
-        resumo: { ...resumo, custoBarter: cenario.custoBarter },
+        resumo: {
+          ...resumo,
+          custoBarter: cenario.custoBarter,
+          lucroTotalFazenda: cenario.lucroTotalFazenda,
+          area: cenario.area,
+        },
       },
       { status: 201 }
     );
