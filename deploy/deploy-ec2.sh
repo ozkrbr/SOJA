@@ -23,6 +23,11 @@ DB_NAME="custo_soja"
 DB_USER="soja"
 NETWORK="soja_net"
 VOLUME="soja_postgres_data"
+
+# IDs do Entra ID (públicos) — lidos em RUNTIME pelo container via /api/config.
+# São defaults da Terrena; sobrescreva exportando as variáveis antes de rodar.
+AZURE_TENANT_ID="${AZURE_TENANT_ID:-d2f590c5-6fba-44a1-a322-a2278cefaee1}"
+AZURE_CLIENT_ID="${AZURE_CLIENT_ID:-a8110041-c4cd-48c5-a931-760544036b8e}"
 # ──────────────────────────────────────────────────────────────
 
 # Senha do banco
@@ -127,8 +132,8 @@ $DOCKER_CMD run -d \
   --restart unless-stopped \
   --platform linux/amd64 \
   -e DATABASE_URL="postgresql://${DB_USER}:${DB_PASS}@custo_soja_db:5432/${DB_NAME}" \
-  -e AZURE_TENANT_ID="${AZURE_TENANT_ID:?Defina AZURE_TENANT_ID no ambiente}" \
-  -e AZURE_CLIENT_ID="${AZURE_CLIENT_ID:?Defina AZURE_CLIENT_ID no ambiente}" \
+  -e AZURE_TENANT_ID="${AZURE_TENANT_ID}" \
+  -e AZURE_CLIENT_ID="${AZURE_CLIENT_ID}" \
   -e PORT=3000 \
   -p 127.0.0.1:"${APP_PORT}":3000 \
   "$FULL_IMAGE"
@@ -138,6 +143,19 @@ echo ""
 echo "==> Aguardando inicialização (migrate + seed + next start)..."
 sleep 12
 $DOCKER_CMD logs custo_soja_app --tail 30
+
+# ── 9. Verificar config de auth (causa comum de falha de login) ─
+echo ""
+echo "==> Verificando /api/config (IDs do Entra ID em runtime)..."
+CONFIG_JSON="$(curl -fsS http://127.0.0.1:${APP_PORT}/api/config 2>/dev/null || true)"
+if echo "$CONFIG_JSON" | grep -q '"clientId":"[^"]'; then
+  echo "   OK — config de autenticação sendo servida:"
+  echo "   ${CONFIG_JSON}"
+else
+  echo "   ⚠ ATENÇÃO: /api/config não retornou clientId/tenantId."
+  echo "     O login online vai falhar. Confira AZURE_TENANT_ID/AZURE_CLIENT_ID"
+  echo "     e veja: $DOCKER_CMD logs custo_soja_app"
+fi
 
 echo ""
 echo "======================================================"
