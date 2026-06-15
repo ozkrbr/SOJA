@@ -17,9 +17,12 @@ IMAGE="ozkr/custo-soja"
 TAG="${1:-latest}"
 FULL_IMAGE="${IMAGE}:${TAG}"
 
-DB_NAME="custo_soja"
-DB_USER="soja"
-DB_PASS="@Cafe2026@"
+DB_NAME="${SOJA_DB_NAME:-custo_soja}"
+DB_USER="${SOJA_DB_USER:-soja}"
+# Senha do banco — NUNCA hardcoded. Defina via variável de ambiente:
+#   export SOJA_DB_PASS='suaSenhaForte'
+#   ./deploy.sh
+DB_PASS="${SOJA_DB_PASS:?Defina a variavel de ambiente SOJA_DB_PASS antes de rodar (ex.: export SOJA_DB_PASS=...)}"
 
 APP_PORT=10101
 NETWORK="soja_net"
@@ -86,6 +89,8 @@ docker run -d \
   --network "$NETWORK" \
   --restart unless-stopped \
   -e DATABASE_URL="postgresql://${DB_USER}:${DB_PASS}@custo_soja_db:5432/${DB_NAME}" \
+  -e AZURE_TENANT_ID="${AZURE_TENANT_ID:?Defina AZURE_TENANT_ID no ambiente}" \
+  -e AZURE_CLIENT_ID="${AZURE_CLIENT_ID:?Defina AZURE_CLIENT_ID no ambiente}" \
   -e PORT=3000 \
   -p "${APP_PORT}":3000 \
   "$FULL_IMAGE"

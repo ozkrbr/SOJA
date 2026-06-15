@@ -106,19 +106,39 @@ Replicam fielmente as abas `PRODUÇÃO SOJA` e `Planilha3` da planilha revisada.
 Conferidas contra os valores reais — batem exatamente.
 
 ### Constantes
-- `BASE = 60` (produtividade base em sc/ha).
+- `BASE = 60` (produtividade de referência da config Baixo Custo — E3 da Planilha3).
+- `BASE_ALTA = 90` (produtividade de referência da config Alta Produtividade — G3 da Planilha3).
 - `taxaMensal` padrão = `0.016` (1,6% a.m.).
 
-### Seleção de configuração
-- Se `produtividade > BASE` -> usa configuração **ALTA_PRODUTIVIDADE**.
-- Senão -> usa **BAIXO_CUSTO**.
-- (Réplica de `IF(G3>60, ...)` da planilha.)
+### Seleção de configuração e interpolação de insumos
 
-### Subtotal de insumos
+O operacional salta binariamente (réplica de `E15 = IF(G3>60, G10, E10)`):
+```
+opVal = produtividade > BASE ? opAlta : opBaixo
+```
+
+Os insumos são **interpolados linearmente** entre as duas configs (réplica de
+`E14 = IF(G3>60, E5+O33, E5)` de `PRODUCAO SOJA`, onde `O33` é o delta de
+investimento total proporcional à posição de produtividade no intervalo [60, 90]):
+```
+if produtividade <= 60:
+    insumos = subBaixo
+
+if produtividade > 60:
+    deltaTotal = (subAlta + opAlta) - (subBaixo + opBaixo)   // H11 da Planilha3 ≈ 1253,41
+    range     = BASE_ALTA - BASE                              // 30
+    deltaP    = min(produtividade - BASE, range)
+    insumos   = subBaixo + (deltaP / range) × deltaTotal
+```
+Nota: `deltaTotal` inclui o delta de operacional (100), por isso a fórmula usa
+o investimento total como base da interpolação e não apenas os insumos. Isso
+replica fielmente a planilha — inclusive o leve "overshooting" aos 90 sc/ha.
+
+### Subtotal de insumos (seed)
 ```
 subtotalInsumos(lista) = SOMA ( quantidade_i x valor_i )
 ```
-Valores de referência validados:
+Valores de referência das configs (sem interpolação):
 - Baixo Custo: **R$ 3.263,8221**
 - Alta Produtividade: **R$ 4.417,2365**
 
@@ -221,7 +241,18 @@ arrendamento=0, dados iniciais.
 - pontoEquilibrio ~ **36,5106 sc/ha**
 - custoPorSaca ~ **76,0637 R$/sc**
 
-> **Escreva testes unitários com AMBOS os casos.** Se algum não passar, a port
+**Caso C — interpolação linear (produtividade intermediária, barter=N):**
+Entrada: produtividade=62, precoDisp=125, precoFuturo=108, barter=false,
+arrendamento=15, dados iniciais.
+- usaAlta = true (62 > 60)
+- deltaTotal = (4417,2365+1400)−(3263,8221+1300) = **1.253,4144**
+- insumos = 3263,8221 + (2/30)×1253,4144 = **3.347,3831**
+- opVal = **1.400** (salto binário)
+- investimentoTotal = **4.747,3831**
+- custoArrend = 15×125 = **1.875,00**
+- receita = 62×125 = **7.750,00**
+
+> **Escreva testes unitários com OS TRÊS casos.** Se algum não passar, a port
 > da lógica está errada — não ajustar os números esperados, corrigir o cálculo.
 
 ## 6. Dados iniciais (seed)

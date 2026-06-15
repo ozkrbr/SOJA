@@ -6,6 +6,15 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("Iniciando seed...");
 
+  // Idempotência: se já houver insumos, não recria nada (preserva edições e
+  // evita duplicação a cada restart do container). Use SEED_FORCE=1 para forçar.
+  const force = process.env.SEED_FORCE === "1";
+  const jaPopulado = (await prisma.insumo.count()) > 0;
+  if (jaPopulado && !force) {
+    console.log("✓ Banco já populado — seed ignorado (use SEED_FORCE=1 para recriar).");
+    return;
+  }
+
   await prisma.safra.upsert({
     where: { nome: "Soja 2026" },
     update: {},

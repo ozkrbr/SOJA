@@ -1,18 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getAuthUser } from "@/lib/auth";
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await getAuthUser(req);
+  if (!auth) {
+    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  }
+
   try {
     const { id } = await params;
-    await prisma.cenario.delete({ where: { id } });
+    // deleteMany com filtro de userId: só remove se pertencer ao usuário.
+    const { count } = await prisma.cenario.deleteMany({
+      where: { id, userId: auth.userId },
+    });
+    if (count === 0) {
+      return NextResponse.json(
+        { error: "Cenário não encontrado" },
+        { status: 404 }
+      );
+    }
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json(
-      { error: "Cenário não encontrado" },
-      { status: 404 }
+      { error: "Erro ao remover cenário" },
+      { status: 500 }
     );
   }
 }

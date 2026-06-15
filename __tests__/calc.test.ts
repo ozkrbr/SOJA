@@ -104,6 +104,81 @@ describe("calcular — caso corrigido (planilha revisada, barter=S, arrend=15)",
   });
 });
 
+// ─── Caso 3: interpolação linear (62 sc/ha — valor real de G3 na planilha) ────
+describe("calcular — interpolação linear de insumos (62 sc/ha)", () => {
+  // Replica E14 de PRODUCAO SOJA:
+  //   deltaTotal = (subAlta+opAlta) − (subBaixo+opBaixo)
+  //              = (4417,2365+1400) − (3263,8221+1300) = 1253,4144
+  //   O33 = (62−60)/30 × 1253,4144 = 83,5610
+  //   insumos = 3263,8221 + 83,5610 = 3347,3831
+  //   opVal = 1400 (salto binário para alta quando P > 60)
+  //   investimentoTotal = 4747,3831
+  const R = calcular({
+    produtividade: 62,
+    precoDisp: 125,
+    precoFuturo: 108,
+    barter: false,
+    arrendamento: 15,
+    insumosBaixo: INSUMOS_BAIXO_INIT,
+    insumosAlta: INSUMOS_ALTA_INIT,
+    operacional: OPERACIONAL_INIT,
+  });
+
+  it("usa Alta (produtividade=62 > 60)", () => {
+    expect(R.usaAlta).toBe(true);
+  });
+
+  it("insumos interpolados ≈ 3347,3831", () => {
+    expect(R.insumos).toBeCloseTo(3347.3831, 2);
+  });
+
+  it("opVal = 1400 (salto para alta config)", () => {
+    expect(R.opVal).toBeCloseTo(1400, 2);
+  });
+
+  it("investimentoTotal ≈ 4747,3831", () => {
+    expect(R.investimentoTotal).toBeCloseTo(4747.3831, 2);
+  });
+
+  it("custoArrend = 1875 (15 sc × R$125 precoDisp)", () => {
+    expect(R.custoArrend).toBeCloseTo(1875, 2);
+  });
+
+  it("receita = 7750 (62 sc × R$125)", () => {
+    expect(R.receita).toBeCloseTo(7750, 2);
+  });
+});
+
+// ─── Caso 4: extremo superior (90 sc/ha) e clamp acima de 90 ──────────────────
+describe("calcular — interpolação no extremo (90 sc/ha) e clamp acima de 90", () => {
+  const base = {
+    precoDisp: 125,
+    precoFuturo: 108,
+    barter: false,
+    arrendamento: 0,
+    insumosBaixo: INSUMOS_BAIXO_INIT,
+    insumosAlta: INSUMOS_ALTA_INIT,
+    operacional: OPERACIONAL_INIT,
+  };
+  const R90 = calcular({ ...base, produtividade: 90 });
+  const R100 = calcular({ ...base, produtividade: 100 });
+
+  // Aos 90: deltaP = 30/30 = 1 → insumos = subBaixo + deltaTotal
+  //   = 3263,8221 + 1253,4144 = 4517,2365 (overshoot proposital da planilha)
+  it("insumos aos 90 ≈ 4517,2365 (overshoot vs subAlta 4417)", () => {
+    expect(R90.insumos).toBeCloseTo(4517.2365, 2);
+  });
+
+  it("investimentoTotal aos 90 ≈ 5917,2365", () => {
+    expect(R90.investimentoTotal).toBeCloseTo(5917.2365, 2);
+  });
+
+  it("acima de 90 (clamp): deltaP é limitado a 30, insumos idênticos aos 90", () => {
+    expect(R100.insumos).toBeCloseTo(R90.insumos, 6);
+    expect(R100.opVal).toBe(R90.opVal); // operacional alta em ambos
+  });
+});
+
 // ─── Auxiliar mesesEntre ──────────────────────────────────────────────────────
 describe("mesesEntre", () => {
   it("2026-05-29 → 2027-04-30 ≈ 11,2 meses", () => {

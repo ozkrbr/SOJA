@@ -35,6 +35,8 @@ interface CenariosTabProps {
   R: CalcResult;
   cenarios: CenarioFrontend[];
   loadingC: boolean;
+  salvando: boolean;
+  removendoId: string | null;
   nomeCenario: string;
   setNomeCenario: (v: string) => void;
   salvarCenario: () => Promise<void>;
@@ -54,6 +56,8 @@ interface CenariosTabProps {
 export default function CenariosTab({
   cenarios,
   loadingC,
+  salvando,
+  removendoId,
   nomeCenario,
   setNomeCenario,
   salvarCenario,
@@ -81,13 +85,14 @@ export default function CenariosTab({
             value={nomeCenario}
             onChange={(e) => setNomeCenario(e.target.value)}
             className="flex-1 min-w-[220px] border border-[#e0d8c5] rounded-[10px] px-3.5 py-2.5 text-sm"
-            onKeyDown={(e) => e.key === "Enter" && salvarCenario()}
+            onKeyDown={(e) => e.key === "Enter" && !salvando && salvarCenario()}
           />
           <button
             onClick={salvarCenario}
-            className="border-none bg-brand-green text-white px-6 py-2.5 rounded-[10px] font-bold cursor-pointer text-sm hover:opacity-90"
+            disabled={salvando}
+            className="border-none bg-brand-green text-white px-6 py-2.5 rounded-[10px] font-bold cursor-pointer text-sm hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Salvar
+            {salvando ? "Salvando…" : "Salvar"}
           </button>
         </div>
         <div className="flex gap-2 flex-wrap mt-3">
@@ -179,9 +184,10 @@ export default function CenariosTab({
                 </button>
                 <button
                   onClick={() => removerCenario(c.id)}
-                  className="border border-[#d8c9b0] bg-transparent text-brand-red px-3 py-2 rounded-lg cursor-pointer text-[12px] font-semibold hover:bg-red-50"
+                  disabled={removendoId === c.id}
+                  className="border border-[#d8c9b0] bg-transparent text-brand-red px-3 py-2 rounded-lg cursor-pointer text-[12px] font-semibold hover:bg-red-50 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Excluir
+                  {removendoId === c.id ? "Excluindo…" : "Excluir"}
                 </button>
               </div>
             </div>

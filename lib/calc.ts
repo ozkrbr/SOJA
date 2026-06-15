@@ -1,4 +1,6 @@
 export const BASE = 60;
+// Produtividade de referência da config ALTA (G3 da Planilha3)
+export const BASE_ALTA = 90;
 
 export interface Insumo {
   produto: string;
@@ -98,31 +100,52 @@ export function mesesEntre(dataInicio: string, dataFim: string): number {
 
   custoTotal = investimentoTotal + custoBarter + custoArrend
 */
+/** Coerção segura para número finito (evita NaN/Infinity vazarem para a UI). */
+function num(v: unknown, fallback = 0): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 export function calcular(input: CalcInput): CalcResult {
   const {
-    produtividade,
-    precoDisp,
-    precoFuturo,
     barter,
-    arrendamento,
     insumosBaixo,
     insumosAlta,
     operacional,
-    taxaMensal = 0.016,
     dataHoje,
     dataTravamento,
-    area = 1,
   } = input;
+
+  // Entradas numéricas coagidas — protege contra strings vazias/NaN vindas da UI.
+  const produtividade = num(input.produtividade);
+  const precoDisp = num(input.precoDisp);
+  const precoFuturo = num(input.precoFuturo);
+  const arrendamento = num(input.arrendamento);
+  const taxaMensal = num(input.taxaMensal, 0.016);
+  const area = num(input.area, 1);
 
   const usaAlta = produtividade > BASE;
 
   const subBaixo = subtotalInsumos(insumosBaixo);
   const subAlta = subtotalInsumos(insumosAlta);
-  const insumos = usaAlta ? subAlta : subBaixo;
+  const opBaixo = somaOperacional(operacional.baixo);
+  const opAlta = somaOperacional(operacional.alta);
+  const opVal = usaAlta ? opAlta : opBaixo;
 
-  const opVal = usaAlta
-    ? somaOperacional(operacional.alta)
-    : somaOperacional(operacional.baixo);
+  // Interpolação linear dos insumos — replica E14 de PRODUCAO SOJA:
+  // E14 = E5 + O33, onde O33 = (produtividade−60) × H11 / 30
+  // H11 = delta total investimento (insumos+op) entre alta e baixo
+  // O operacional ainda salta binariamente (E15 = G10 quando P > 60)
+  let insumos: number;
+  if (!usaAlta) {
+    insumos = subBaixo;
+  } else {
+    const deltaTotal = (subAlta + opAlta) - (subBaixo + opBaixo);
+    const range = BASE_ALTA - BASE; // 30
+    const deltaP = Math.min(produtividade - BASE, range);
+    insumos = subBaixo + (deltaP / range) * deltaTotal;
+  }
+
   const investimentoTotal = insumos + opVal;
 
   const precoSaca = barter ? precoFuturo : precoDisp;

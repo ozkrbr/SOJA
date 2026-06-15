@@ -2,7 +2,7 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+RUN npm install --prefer-offline
 
 # ── 2. Build ──────────────────────────────────────────────────────────────────
 FROM node:22-alpine AS builder
@@ -11,6 +11,11 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# Os IDs do Entra ID NÃO são mais embutidos no build: o app os obtém em runtime
+# via /api/config (variáveis AZURE_TENANT_ID / AZURE_CLIENT_ID do servidor).
+# Assim a mesma imagem roda em qualquer tenant sem rebuild.
+
 RUN npm run build
 
 # ── 3. Runner ─────────────────────────────────────────────────────────────────

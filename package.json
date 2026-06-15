@@ -14,7 +14,10 @@
     "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@azure/msal-browser": "^5.13.0",
+    "@azure/msal-react": "^5.4.4",
     "@prisma/client": "^6.9.0",
+    "jose": "^5.9.6",
     "next": "^15",
     "react": "^19",
     "react-dom": "^19",

@@ -14,13 +14,16 @@ param(
 
 # ── Configuração ──────────────────────────────────────────
 $IMAGE   = "ozkr/custo-soja"
-$SERVER  = "COLOQUE_O_IP_DO_SERVIDOR_AQUI"   # ex.: "192.168.1.100"
+$SERVER  = "10.1.3.70"   # ex.: "192.168.1.100"
 $SSH_USER = "root"                            # usuário SSH do servidor
-$APP_PORT = 10101
+$APP_PORT = 3000   # Nginx escuta 443 e faz proxy para localhost:3000
 $DB_USER  = "soja"
 $DB_PASS  = if ($env:SOJA_DB_PASS) { $env:SOJA_DB_PASS } else { Read-Host "Senha do banco de dados" }
 $DB_NAME  = "custo_soja"
 $NETWORK  = "soja_net"
+# IDs do Entra ID lidos em runtime pelo container (via /api/config)
+$AZURE_TENANT_ID = if ($env:AZURE_TENANT_ID) { $env:AZURE_TENANT_ID } else { "d2f590c5-6fba-44a1-a322-a2278cefaee1" }
+$AZURE_CLIENT_ID = if ($env:AZURE_CLIENT_ID) { $env:AZURE_CLIENT_ID } else { "a8110041-c4cd-48c5-a931-760544036b8e" }
 # ─────────────────────────────────────────────────────────
 
 $FULL_IMAGE = "${IMAGE}:${Tag}"
@@ -63,8 +66,10 @@ docker run -d \
   --network $NETWORK \
   --restart unless-stopped \
   -e DATABASE_URL="postgresql://${DB_USER}:${DB_PASS}@custo_soja_db:5432/${DB_NAME}" \
+  -e AZURE_TENANT_ID="$AZURE_TENANT_ID" \
+  -e AZURE_CLIENT_ID="$AZURE_CLIENT_ID" \
   -e PORT=3000 \
-  -p ${APP_PORT}:3000 \
+  -p 127.0.0.1:${APP_PORT}:3000 \
   $FULL_IMAGE
 
 echo '--- Aguardando inicialização ---'
@@ -81,5 +86,5 @@ Write-Host ""
 Write-Host "======================================================"
 Write-Host "  Atualização concluída!"
 Write-Host "  Versão : $Tag"
-Write-Host "  URL    : http://${SERVER}:${APP_PORT}"
+Write-Host "  URL    : https://custosoja.terrenaagro.com.br"
 Write-Host "======================================================"

@@ -4,7 +4,7 @@ set -e
 echo "==> Aplicando migrações do banco..."
 npx prisma migrate deploy
 
-echo "==> Populando dados iniciais (insumos, operacional, safra)..."
+echo "==> Verificando dados iniciais (seed idempotente — só popula se vazio)..."
 npx tsx prisma/seed.ts || echo "Seed ignorado (banco já populado ou erro não-crítico)"
 
 echo "==> Iniciando aplicação na porta ${PORT:-3000}..."

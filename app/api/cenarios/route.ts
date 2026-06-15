@@ -1,10 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getAuthUser } from "@/lib/auth";
 
-export async function GET() {
+// Safra padrão da aplicação. Parametrizável para suportar múltiplas safras
+// no futuro (a UI pode enviar params.safra).
+const SAFRA_PADRAO = "Soja 2026";
+
+// Limite de cenários retornados (paginação simples — os mais recentes primeiro).
+const LIMITE_CENARIOS = 100;
+
+export async function GET(req: NextRequest) {
+  const auth = await getAuthUser(req);
+  if (!auth) {
+    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  }
+
   try {
     const cenarios = await prisma.cenario.findMany({
+      where: { userId: auth.userId },
       orderBy: { ts: "desc" },
+      take: LIMITE_CENARIOS,
     });
     return NextResponse.json(
       cenarios.map((c) => ({
@@ -39,16 +54,23 @@ export async function GET() {
         },
       }))
     );
-  } catch {
-    return NextResponse.json([]);
+  } catch (e) {
+    console.error(e);
+    return NextResponse.json({ error: "Erro ao listar cenários" }, { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await getAuthUser(req);
+  if (!auth) {
+    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  }
+
   try {
     const body = await req.json();
-    const { nome, params, resumo } = body as {
+    const { nome, params, resumo, safra: safraNome } = body as {
       nome: string;
+      safra?: string;
       params: {
         produtividade: number;
         precoDisp: number;
@@ -75,16 +97,22 @@ export async function POST(req: NextRequest) {
       };
     };
 
+    // Validação mínima do payload.
+    if (!nome || !params || !resumo || typeof params.produtividade !== "number") {
+      return NextResponse.json({ error: "Payload inválido" }, { status: 400 });
+    }
+
     const safra = await prisma.safra.upsert({
-      where: { nome: "Soja 2026" },
+      where: { nome: safraNome || SAFRA_PADRAO },
       update: {},
-      create: { nome: "Soja 2026" },
+      create: { nome: safraNome || SAFRA_PADRAO },
     });
 
     const cenario = await prisma.cenario.create({
       data: {
         nome,
         safraId: safra.id,
+        userId: auth.userId,
         ts: BigInt(Date.now()),
         produtividade: params.produtividade,
         precoDisp: params.precoDisp,
