@@ -433,7 +433,7 @@ export default function CustoSojaApp() {
             </button>
             <div className="text-[11px] text-brand-muted">
               {custosBloqueados
-                ? `travado em ${fmtNum(produtividadeTravada ?? 0)} sc/ha`
+                ? `insumos travados: ${fmtBRL(R.insumos)}`
                 : "custo de insumos livre"}
             </div>
           </div>
