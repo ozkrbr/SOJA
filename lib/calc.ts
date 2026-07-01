@@ -36,10 +36,17 @@ export interface CalcInput {
   dataTravamento?: string;   // 'YYYY-MM-DD'
   // área de plantio em hectares (réplica de Q3 da planilha)
   area?: number;
+  // trava a POSIÇÃO de sc/ha usada na interpolação de insumos (Alta
+  // Produtividade), para que o custo não cresça ao aumentar a produtividade.
+  // Os insumos continuam recalculados a partir das listas atuais — apenas o
+  // ponto de interpolação fica congelado, então editar preços/quantidades
+  // ainda reflete no resultado.
+  produtividadeTravada?: number | null;
 }
 
 export interface CalcResult {
   usaAlta: boolean;
+  custosTravados: boolean;
   insumos: number;
   opVal: number;
   investimentoTotal: number;
@@ -114,6 +121,7 @@ export function calcular(input: CalcInput): CalcResult {
     operacional,
     dataHoje,
     dataTravamento,
+    produtividadeTravada,
   } = input;
 
   // Entradas numéricas coagidas — protege contra strings vazias/NaN vindas da UI.
@@ -136,13 +144,21 @@ export function calcular(input: CalcInput): CalcResult {
   // E14 = E5 + O33, onde O33 = (produtividade−60) × H11 / 30
   // H11 = delta total investimento (insumos+op) entre alta e baixo
   // O operacional ainda salta binariamente (E15 = G10 quando P > 60)
+  // Trava de custos: usa a produtividade congelada no momento em que o
+  // usuário travou como ponto de interpolação, mas subBaixo/subAlta continuam
+  // recalculados a partir das listas de insumos atuais — editar preços ou
+  // quantidades ainda reflete no resultado, só o sc/ha fica congelado.
+  const temTrava =
+    usaAlta && produtividadeTravada != null && Number.isFinite(produtividadeTravada);
+  const produtividadeInterp = temTrava ? (produtividadeTravada as number) : produtividade;
+
   let insumos: number;
   if (!usaAlta) {
     insumos = subBaixo;
   } else {
     const deltaTotal = (subAlta + opAlta) - (subBaixo + opBaixo);
     const range = BASE_ALTA - BASE; // 30
-    const deltaP = Math.min(produtividade - BASE, range);
+    const deltaP = Math.min(Math.max(produtividadeInterp - BASE, 0), range);
     insumos = subBaixo + (deltaP / range) * deltaTotal;
   }
 
@@ -179,6 +195,7 @@ export function calcular(input: CalcInput): CalcResult {
 
   return {
     usaAlta,
+    custosTravados: temTrava,
     insumos,
     opVal,
     investimentoTotal,

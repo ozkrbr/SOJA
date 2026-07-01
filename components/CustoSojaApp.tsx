@@ -103,6 +103,13 @@ export default function CustoSojaApp() {
 
   const faixaInvalida = produtividade < 60 || produtividade > 90;
 
+  // Trava de custos (Alta Produtividade): congela a posição de sc/ha usada
+  // na interpolação de insumos no momento em que foi ativada — os insumos
+  // continuam recalculados a partir das tabelas (editar preço/qtde reflete),
+  // só o crescimento por aumento de produtividade fica congelado.
+  const [custosBloqueados, setCustosBloqueados] = useState(false);
+  const [produtividadeTravada, setProdutividadeTravada] = useState<number | null>(null);
+
   const [aba, setAba] = useState<AbaId>("painel");
   const [configInsumo, setConfigInsumo] = useState<"baixo" | "alta">("baixo");
   const [cenarios, setCenarios] = useState<CenarioFrontend[]>([]);
@@ -133,16 +140,37 @@ export default function CustoSojaApp() {
         dataHoje,
         dataTravamento,
         area,
+        produtividadeTravada: custosBloqueados ? produtividadeTravada : null,
       }),
     [
       produtividade, precoDisp, precoFuturo, barter, arrendamento, area,
       insumosBaixo, insumosAlta, operacional,
       taxaMensal, dataHoje, dataTravamento,
+      custosBloqueados, produtividadeTravada,
     ]
   );
 
   // barter ligado mas sem período válido (datas vazias/invertidas) → custo zero silencioso.
   const barterSemPeriodo = barter && R.meses <= 0;
+
+  // Sai da Alta Produtividade (sc/ha <= 60) → destrava automaticamente.
+  useEffect(() => {
+    if (!R.usaAlta && custosBloqueados) {
+      setCustosBloqueados(false);
+      setProdutividadeTravada(null);
+    }
+  }, [R.usaAlta, custosBloqueados]);
+
+  const alternarTravarCustos = useCallback(() => {
+    setCustosBloqueados((prev) => {
+      if (!prev) {
+        setProdutividadeTravada(produtividade);
+      } else {
+        setProdutividadeTravada(null);
+      }
+      return !prev;
+    });
+  }, [produtividade]);
 
   useEffect(() => {
     if (!user) return;
@@ -382,6 +410,34 @@ export default function CustoSojaApp() {
           step={1}
           accent="#6b8f3f"
         />
+        {R.usaAlta && (
+          <div
+            className="bg-white border border-brand-border rounded-xl p-3 text-center shadow-sm"
+            style={{ borderTop: "3px solid #b5882a" }}
+          >
+            <div className="text-[11px] font-bold tracking-[0.5px] text-brand-brown">
+              TRAVAR CUSTOS
+            </div>
+            <div className="text-[10px] text-brand-muted mt-0.5" style={{ height: 12 }}>
+              insumos não sobem c/ sc/ha
+            </div>
+            <button
+              onClick={alternarTravarCustos}
+              className="w-full border-none rounded-lg py-2.5 text-lg font-extrabold cursor-pointer my-2 font-serif transition-all"
+              style={{
+                background: custosBloqueados ? "#b5882a" : "#e6e0d4",
+                color: custosBloqueados ? "#fff" : "#5a4632",
+              }}
+            >
+              {custosBloqueados ? "SIM" : "NÃO"}
+            </button>
+            <div className="text-[11px] text-brand-muted">
+              {custosBloqueados
+                ? `travado em ${fmtNum(produtividadeTravada ?? 0)} sc/ha`
+                : "custo de insumos livre"}
+            </div>
+          </div>
+        )}
         <ParamCard
           label="ÁREA PLANTIO"
           unit="ha"

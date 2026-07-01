@@ -73,7 +73,7 @@ export default function PainelTab({ R, produtividade }: PainelTabProps) {
         <CostCard
           title="Investimento (R$/ha)"
           rows={[
-            { label: "Insumos", value: fmtBRL(R.insumos) },
+            { label: R.custosTravados ? "Insumos (travado)" : "Insumos", value: fmtBRL(R.insumos) },
             { label: "Operacional", value: fmtBRL(R.opVal) },
           ]}
           total={fmtBRL(R.investimentoTotal)}

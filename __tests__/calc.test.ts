@@ -191,6 +191,57 @@ describe("mesesEntre", () => {
   });
 });
 
+// ─── Trava de custos (Alta Produtividade) ──────────────────────────────────────
+describe("calcular — trava de custos de insumos em Alta Produtividade", () => {
+  const base = {
+    precoDisp: 125,
+    precoFuturo: 108,
+    barter: false,
+    arrendamento: 0,
+    insumosBaixo: INSUMOS_BAIXO_INIT,
+    insumosAlta: INSUMOS_ALTA_INIT,
+    operacional: OPERACIONAL_INIT,
+  };
+
+  it("sem trava, insumos crescem ao aumentar sc/ha dentro de 60–90", () => {
+    const R62 = calcular({ ...base, produtividade: 62 });
+    const R70 = calcular({ ...base, produtividade: 70 });
+    expect(R70.insumos).toBeGreaterThan(R62.insumos);
+  });
+
+  it("com trava, aumentar sc/ha não aumenta mais os insumos (posição congelada)", () => {
+    const R62 = calcular({ ...base, produtividade: 62 });
+    const R70Travado = calcular({
+      ...base,
+      produtividade: 70,
+      produtividadeTravada: 62,
+    });
+    expect(R70Travado.insumos).toBeCloseTo(R62.insumos, 6);
+    expect(R70Travado.custosTravados).toBe(true);
+  });
+
+  it("mesmo travado, editar preço/qtde de um insumo ainda reflete no cálculo", () => {
+    const insumosAltaEditado = INSUMOS_ALTA_INIT.map((item, idx) =>
+      idx === 0 ? { ...item, valor: item.valor * 2 } : item
+    );
+    const R62Original = calcular({ ...base, produtividade: 62, produtividadeTravada: 62 });
+    const R70TravadoEditado = calcular({
+      ...base,
+      produtividade: 70,
+      insumosAlta: insumosAltaEditado,
+      produtividadeTravada: 62,
+    });
+    // mesma posição de interpolação (62), mas insumo mais caro → total maior
+    expect(R70TravadoEditado.insumos).toBeGreaterThan(R62Original.insumos);
+  });
+
+  it("trava não tem efeito fora da Alta Produtividade (produtividade <= 60)", () => {
+    const R = calcular({ ...base, produtividade: 60, produtividadeTravada: 75 });
+    expect(R.custosTravados).toBe(false);
+    expect(R.insumos).toBeCloseTo(3263.8221, 4);
+  });
+});
+
 // ─── Barter ativo usa preço futuro na receita ─────────────────────────────────
 describe("calcular — barter usa preço futuro na receita, arrend usa preço disponível", () => {
   const R = calcular({
